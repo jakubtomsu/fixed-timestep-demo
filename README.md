@@ -2,7 +2,7 @@
 
 This is a demo to show a number of different ways to render a game with a fixed-timestep simulation.
 
-You can read [my article](https://jakubtomsu.github.io/posts/fixed_timestep_without_interpolation) to learn more about fixed timestep simulations in general.
+You can read [my article](https://jakubtomsu.github.io/posts/fixed_timestep_without_interpolation) to learn more about the methods I implement in the demo. I also recommend [Fix your Timestep!](https://www.gafferongames.com/post/fix_your_timestep/) article by Glenn Fiedler.
 
 ## Overview
 This is a short overview of the most important methods in the demo:
