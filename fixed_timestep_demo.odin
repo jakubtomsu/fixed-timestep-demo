@@ -215,10 +215,10 @@ main :: proc() {
         rl.DrawRectangleV({120, WINDOW_SIZE_Y - 30}, 20, action_colors[.Dash])
         rl.DrawRectangleV({160, WINDOW_SIZE_Y - 30}, 20, action_colors[.Shoot])
 
-        // rl.DrawFPS(2, 2)
-        // rl.DrawText(fmt.ctprintf("Sim Mode: {} (left/right)", sim_mode), 2, 22, 20, rl.WHITE)
-        // rl.DrawText(fmt.ctprintf("Delta: {} ({} TPS) (up/down)", delta, _tick_nums[delta_index]), 2, 44, 20, rl.WHITE)
-        // rl.DrawText(fmt.ctprintf("Accumulator: {}", accumulator), 2, 66, 20, rl.WHITE)
+        rl.DrawFPS(2, 2)
+        rl.DrawText(fmt.ctprintf("Sim Mode: {} (left/right)", sim_mode), 2, 22, 20, rl.WHITE)
+        rl.DrawText(fmt.ctprintf("Delta: {} ({} TPS) (up/down)", delta, _tick_nums[delta_index]), 2, 44, 20, rl.WHITE)
+        rl.DrawText(fmt.ctprintf("Accumulator: {}", accumulator), 2, 66, 20, rl.WHITE)
     }
 }
 
