@@ -1,4 +1,4 @@
-# Fixed Timestep Demo
+# ⏲️ Fixed Timestep Demo
 
 This is a demo to show a number of different ways to render a game with a fixed-timestep simulation.
 
