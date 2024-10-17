@@ -19,11 +19,18 @@ _tick_nums := [?]f32 {
     10,
     15,
     30,
+    40,
+    50,
     60,
+    75,
+    100,
     120,
+    180,
     240,
+    480,
 }
 
+// "Fixed_Interpolated" and "Fixed_Render_Tick"
 Simulation_Mode :: enum u8 {
     // This is always "smooth" but not fixed timestep.
     // Sort of like a reference implementation.
@@ -34,18 +41,22 @@ Simulation_Mode :: enum u8 {
     Fixed_Accumulated_Render_Tick,
 }
 
-g_character_walk_texture: rl.Texture
-g_character_idle_texture: rl.Texture
-SPRITE_SIZE_X :: 48
-SPRITE_SIZE_Y :: 64
+g_player_walk_texture: rl.Texture
+g_player_idle_texture: rl.Texture
+g_bullet_texture: rl.Texture
+PLAYER_SPRITE_SIZE_X :: 48
+PLAYER_SPRITE_SIZE_Y :: 64
+BULLET_SPRITE_SIZE_X :: 16
+BULLET_SPRITE_SIZE_Y :: 16
 
 main :: proc() {
     rl.SetConfigFlags({.VSYNC_HINT, .MSAA_4X_HINT})
     rl.InitWindow(1000, 700, "Fixed Timestep Demo")
     defer rl.CloseWindow()
 
-    g_character_idle_texture = rl.LoadTexture("character_idle.png")
-    g_character_walk_texture = rl.LoadTexture("character_walk.png")
+    g_player_idle_texture = rl.LoadTexture("player_idle.png")
+    g_player_walk_texture = rl.LoadTexture("player_walk.png")
+    g_bullet_texture = rl.LoadTexture("bullet.png")
 
     tick_input: Input
     game: Game
@@ -92,6 +103,7 @@ main :: proc() {
         frame_input.actions[.Up   ] = input_flags_from_key(.W)
         frame_input.actions[.Down ] = input_flags_from_key(.S)
         frame_input.actions[.Dash ] = input_flags_from_key(.SPACE)
+        frame_input.actions[.Shoot] = input_flags_from_key(.M)
 
         tick_input.cursor = frame_input.cursor
         // _accumulate_ temp flags instead of overwriting
@@ -106,7 +118,10 @@ main :: proc() {
             game_tick(&game, frame_input, rl.GetFrameTime())
             game_draw(game)
             accumulator = 0
-            tick_input = {} // unnecessary
+            // The rest is just to make the transition to other sim modes less harsh,
+            // feel free to ignore it.
+            tick_input = {}
+            runtime.mem_copy_non_overlapping(&temp_game, &game, size_of(Game))
 
         case .Fixed_No_Smooth:
             any_tick := accumulator > delta
@@ -159,7 +174,7 @@ main :: proc() {
                 runtime.mem_copy_non_overlapping(&temp_game, &game, size_of(Game))
                 prev_accumulator = 0
             }
-            input_clear_temp(&frame_input) // !
+            // input_clear_temp(&frame_input) // !
             game_tick(&temp_game, frame_input, accumulator - prev_accumulator)
             if draw_debug {
                 game_draw(game, rl.Fade(rl.RED, 0.8))
@@ -168,13 +183,10 @@ main :: proc() {
             prev_accumulator = accumulator
         }
 
-        rl.DrawFPS(2, 2)
-
-        rl.DrawText(fmt.ctprintf("Sim Mode: {} (left/right)", sim_mode), 2, 22, 20, rl.WHITE)
-        rl.DrawText(fmt.ctprintf("Delta: {} ({} TPS) (up/down)", delta, _tick_nums[delta_index]), 2, 44, 20, rl.WHITE)
-        rl.DrawText(fmt.ctprintf("Accumulator: {}", accumulator), 2, 66, 20, rl.WHITE)
-
-        // game_draw_debug(game, rl.Fade(rl.GREEN, 0.5))
+        // rl.DrawFPS(2, 2)
+        // rl.DrawText(fmt.ctprintf("Sim Mode: {} (left/right)", sim_mode), 2, 22, 20, rl.WHITE)
+        // rl.DrawText(fmt.ctprintf("Delta: {} ({} TPS) (up/down)", delta, _tick_nums[delta_index]), 2, 44, 20, rl.WHITE)
+        // rl.DrawText(fmt.ctprintf("Accumulator: {}", accumulator), 2, 66, 20, rl.WHITE)
     }
 }
 
@@ -193,6 +205,7 @@ Input_Action :: enum u8 {
     Up,
     Down,
     Dash,
+    Shoot,
 }
 
 Input_Flag :: enum u8 {
@@ -230,6 +243,14 @@ Game :: struct {
     player_dir:        rl.Vector2,
     player_anim_timer: f32,
     player_moving:     bool,
+    bullets:           [1024]Bullet,
+}
+
+Bullet :: struct {
+    pos:         rl.Vector2,
+    vel:         rl.Vector2,
+    time:        f32,
+    generation:  u32,
 }
 
 game_tick :: proc(game: ^Game, input: Input, delta: f32) {
@@ -253,43 +274,96 @@ game_tick :: proc(game: ^Game, input: Input, delta: f32) {
     game.player_pos += move_dir * delta * 150
     game.player_anim_timer += delta
     game.player_moving = moving
+
+    for &bullet in game.bullets {
+        if bullet.time == 0 do continue
+        bullet.pos += bullet.vel * delta
+        bullet.time += delta
+        if bullet.time > 0.5 {
+            bullet.time = 0
+        }
+    }
+
+    if .Pressed in input.actions[.Shoot] {
+        // Insert, this is a bit dumb. This should
+        for &bullet in game.bullets {
+            if bullet.time != 0 do continue
+            bullet.pos = game.player_pos + game.player_dir * 20
+            bullet.vel = game.player_dir * 1000
+            bullet.time = 1e-6
+            bullet.generation += 1
+            break
+        }
+    }
 }
 
 game_draw :: proc(game: Game, tint := rl.WHITE) {
-    tex := game.player_moving ? g_character_walk_texture : g_character_idle_texture
+    PIXEL_SCALE :: 4
 
-    // HACK
-    dir_row := 0
-    if game.player_dir.y >= 0 {
-        if game.player_dir.y > 0.86 {
-            dir_row = 0
+    // Player
+    {
+        tex := game.player_moving ? g_player_walk_texture : g_player_idle_texture
+
+        // HACK
+        dir_row := 0
+        if game.player_dir.y >= 0 {
+            if game.player_dir.y > 0.86 {
+                dir_row = 0
+            } else {
+                dir_row = game.player_dir.x > 0 ? 5 : 1
+            }
         } else {
-            dir_row = game.player_dir.x > 0 ? 5 : 1
+            if game.player_dir.y < -0.86 {
+                dir_row = 3
+            } else {
+                dir_row = game.player_dir.x > 0 ? 4 : 2
+            }
         }
-    } else {
-        if game.player_dir.y < -0.86 {
-            dir_row = 3
-        } else {
-            dir_row = game.player_dir.x > 0 ? 4 : 2
+
+        src_rect := rl.Rectangle{
+            f32(int(game.player_anim_timer * 10)) * PLAYER_SPRITE_SIZE_X,
+            f32(dir_row) * PLAYER_SPRITE_SIZE_Y,
+            PLAYER_SPRITE_SIZE_X,
+            PLAYER_SPRITE_SIZE_Y,
         }
+
+        dst_rect := rl.Rectangle{
+            game.player_pos.x,
+            game.player_pos.y,
+            PLAYER_SPRITE_SIZE_X * PIXEL_SCALE,
+            PLAYER_SPRITE_SIZE_Y * PIXEL_SCALE,
+        }
+
+        rl.DrawTexturePro(tex, src_rect, dst_rect, {dst_rect.width * 0.5, dst_rect.height * 0.5}, 0, tint)
     }
 
-    src_rect := rl.Rectangle{
-        f32(int(game.player_anim_timer * 10)) * SPRITE_SIZE_X,
-        f32(dir_row) * SPRITE_SIZE_Y,
-        SPRITE_SIZE_X,
-        SPRITE_SIZE_Y,
-    }
+    for bullet in game.bullets {
+        if bullet.time == 0 do continue
 
-    SCALE :: 4
-    dst_rect := rl.Rectangle{
-        game.player_pos.x,
-        game.player_pos.y,
-        SPRITE_SIZE_X * SCALE,
-        SPRITE_SIZE_Y * SCALE,
-    }
+        src_rect := rl.Rectangle{
+            f32(int(bullet.time * 20)) * BULLET_SPRITE_SIZE_X,
+            0,
+            BULLET_SPRITE_SIZE_X,
+            BULLET_SPRITE_SIZE_Y,
+        }
 
-    rl.DrawTexturePro(tex, src_rect, dst_rect, {dst_rect.width * 0.5, dst_rect.height * 0.5}, 0, tint)
+        dst_rect := rl.Rectangle{
+            bullet.pos.x,
+            bullet.pos.y,
+            BULLET_SPRITE_SIZE_X * PIXEL_SCALE,
+            BULLET_SPRITE_SIZE_Y * PIXEL_SCALE,
+        }
+
+
+        rl.DrawTexturePro(
+            g_bullet_texture,
+            src_rect,
+            dst_rect,
+            {dst_rect.width * 0.5, dst_rect.height * 0.5},
+            0,
+            tint,
+        )
+    }
 }
 
 // This is a separate proc just because of the structure of this example,
@@ -298,35 +372,22 @@ game_draw :: proc(game: Game, tint := rl.WHITE) {
 game_interpolate :: proc(result: ^Game, game, prev_game: Game, alpha: f32) {
     result.player_pos = lerp(prev_game.player_pos, game.player_pos, alpha)
     result.player_anim_timer = lerp(prev_game.player_anim_timer, game.player_anim_timer, alpha)
-}
 
-////////////////////////////////////////////////////////////////////////////////////
-// Utils
-//
+    for bullet, i in game.bullets {
+        prev_bullet := prev_game.bullets[i]
+        if bullet.time == 0 || prev_bullet.generation != game.bullets[i].generation {
+            result.bullets[i].time = 0
+            continue
+        }
+        result.bullets[i] = {
+            pos  = lerp(prev_bullet.pos,  bullet.pos,  alpha),
+            vel  = lerp(prev_bullet.vel,  bullet.vel,  alpha),
+            time = lerp(prev_bullet.time, bullet.time, alpha),
+            generation = bullet.generation,
+        }
+    }
+}
 
 lerp :: proc(a, b: $T, t: f32) -> T {
     return a * (1 - t) + b * t
-}
-
-// Multiply rate by delta to get frame rate independent interpolation
-lerp_exp :: proc(a, b: $T, rate: f32) -> T {
-    return lerp(b, a, math.exp(-rate))
-}
-
-// Segment defined by points [pos, pos + dir]
-test_segment_circle :: proc(pos, dir, center: rl.Vector2, rad: f32) -> bool {
-    m := pos - center
-    c := linalg.dot(m, m) - rad * rad
-    // If there is definitely at least one real root, there must be an intersection
-    if c <= 0 do return true
-    b := linalg.dot(m, dir)
-    // Early exit if ray origin outside sphere and ray pointing away from sphere
-    if b > 0 do return false
-    discr := b * b - c
-    // A negative discriminant corresponds to ray missing sphere
-    if discr < 0 {
-        return false
-    }
-    t := -b - math.sqrt(discr)
-    return t < 1
 }
