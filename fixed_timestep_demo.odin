@@ -1,3 +1,15 @@
+/*
+This is a demo to show a number of different ways to render a game with a fixed-timestep simulation.
+
+By Jakub Tomšů
+
+Read https://jakubtomsu.github.io/posts/fixed_timestep_without_interpolation for more info.
+
+Controls
+- Use WASD to move the player, space to dash and M to shoot a bullet.
+- Use left/right arrow keys to change the simulation mode
+- Use up/down arrow keys to change the TPS
+*/
 package fixed_timestep_demo
 
 import rl "vendor:raylib"
