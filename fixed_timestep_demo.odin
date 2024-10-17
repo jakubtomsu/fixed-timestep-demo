@@ -42,7 +42,7 @@ _tick_nums := [?]f32 {
     480,
 }
 
-// "Fixed_Interpolated" and "Fixed_Render_Tick"
+// "Fixed_Interpolated" and "Fixed_Render_Tick" are by far the most important
 Simulation_Mode :: enum u8 {
     // This is always "smooth" but not fixed timestep.
     // Sort of like a reference implementation.
