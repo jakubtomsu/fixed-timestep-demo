@@ -183,6 +183,26 @@ main :: proc() {
             prev_accumulator = accumulator
         }
 
+        action_colors: [Input_Action]rl.Color
+        for action in Input_Action {
+            mask := bit_set[Input_Flag]{.Down, .Pressed}
+            if frame_input.actions[action] & mask != {} {
+                action_colors[action] = {220, 230, 240, 255}
+            } else if tick_input.actions[action] & mask != {} {
+                action_colors[action] = {50, 150, 150, 255}
+            } else {
+                action_colors[action] = {80, 90, 100, 255}
+            }
+        }
+
+        rl.DrawRectangleV({10, WINDOW_SIZE_Y - 60}, 20, action_colors[.Left])
+        rl.DrawRectangleV({70, WINDOW_SIZE_Y - 60}, 20, action_colors[.Right])
+        rl.DrawRectangleV({40, WINDOW_SIZE_Y - 90}, 20, action_colors[.Up])
+        rl.DrawRectangleV({40, WINDOW_SIZE_Y - 30}, 20, action_colors[.Down])
+
+        rl.DrawRectangleV({120, WINDOW_SIZE_Y - 30}, 20, action_colors[.Dash])
+        rl.DrawRectangleV({160, WINDOW_SIZE_Y - 30}, 20, action_colors[.Shoot])
+
         // rl.DrawFPS(2, 2)
         // rl.DrawText(fmt.ctprintf("Sim Mode: {} (left/right)", sim_mode), 2, 22, 20, rl.WHITE)
         // rl.DrawText(fmt.ctprintf("Delta: {} ({} TPS) (up/down)", delta, _tick_nums[delta_index]), 2, 44, 20, rl.WHITE)
@@ -298,7 +318,7 @@ game_tick :: proc(game: ^Game, input: Input, delta: f32) {
 }
 
 game_draw :: proc(game: Game, tint := rl.WHITE) {
-    PIXEL_SCALE :: 4
+    PIXEL_SCALE :: 5
 
     // Player
     {
