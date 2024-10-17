@@ -4,8 +4,6 @@ This is a demo to show a number of different ways to render a game with a fixed-
 
 You can read [my article](https://jakubtomsu.github.io/posts/fixed_timestep_without_interpolation) to learn more about fixed timestep simulations in general.
 
-![gif](comparison.gif)
-
 ## Overview
 This is a short overview of the most important methods in the demo:
 - Interpolation: Always smooth. Needs a way to interpolate two game states, this can be a pain to implement. Always lags one tick behind - this means worse latency, especially with low TPS.
