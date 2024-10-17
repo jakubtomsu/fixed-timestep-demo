@@ -21,6 +21,10 @@ This is a short overview of the most important methods in the demo:
 </p>
 </p>
 
+## Build
+- Set up the Odin Compiler, either from [Github Releases](https://github.com/odin-lang/Odin/releases) or by [compiling it yourself](https://odin-lang.org/docs/install/)
+- run `odin run .` from the root folder of this project. This builds and executes `fixed_timestep_demo.odin`
+
 ## Controls
 - Use WASD to move the player, space to dash and M to shoot a bullet.
 - Use left/right arrow keys to change the simulation mode
